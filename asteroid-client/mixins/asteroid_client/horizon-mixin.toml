@@ -1,0 +1,416 @@
+[mod]
+id = "asteroid_client"
+version = "2.1.0"
+priority = 90
+
+# Hooks the native hook points and a few game functions (reach, mob_hit,
+# chat input, movement packets, mining, connecting), so it pins the commit it
+# was built and tested on.
+[compatibility]
+horizon_revision = "66f3981f522b24c250b21523a70080965b940424"
+
+[[module]]
+id = "core"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_core"
+source = "core.rs"
+
+[[module]]
+id = "combat"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_combat"
+source = "combat.rs"
+
+[[module]]
+id = "player"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_player"
+source = "player.rs"
+
+[[module]]
+id = "movement"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_movement"
+source = "movement.rs"
+
+[[module]]
+id = "render"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_render"
+source = "render.rs"
+
+[[module]]
+id = "world"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_world"
+source = "world.rs"
+
+[[module]]
+id = "misc"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_misc"
+source = "misc.rs"
+
+[[module]]
+id = "baritone"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_baritone"
+source = "baritone.rs"
+
+[[module]]
+id = "tab"
+file = "crates/horizon-client/src/game/remote.rs"
+name = "asteroid_tab"
+visibility = "pub"
+source = "tab.rs"
+
+[[injection]]
+id = "tick"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_tick"
+helper = "hooks/tick.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+]
+
+[[injection]]
+id = "frame"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_frame"
+helper = "hooks/frame.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "elapsed", ty = "std::time::Duration", value = "elapsed" },
+]
+
+[[injection]]
+id = "hud"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_hud"
+helper = "hooks/hud.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "batch", ty = "&mut horizon_client::hud::HudBatch", value = "&mut *batch" },
+  { name = "corners", ty = "&mut horizon_client::extras_hud::Corners", value = "&mut *corners" },
+]
+
+[[injection]]
+id = "key"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_key"
+helper = "hooks/key.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "key", ty = "&str", value = "key" },
+  { name = "pressed", ty = "bool", value = "pressed" },
+]
+
+[[injection]]
+id = "command"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_command"
+helper = "hooks/command.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "command", ty = "&str", value = "command" },
+  { name = "ran", ty = "&mut bool", value = "&mut *ran" },
+]
+
+[[injection]]
+id = "list"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_mods"
+helper = "hooks/list.rs"
+bindings = [
+  { name = "mods", ty = "&mut Vec<crate::game::native_hooks::NativeMod>", value = "&mut *mods" },
+]
+
+[[injection]]
+id = "settings"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_settings"
+helper = "hooks/settings.rs"
+bindings = [
+  { name = "mod_id", ty = "&str", value = "mod_id" },
+  { name = "buttons", ty = "&mut Vec<String>", value = "&mut *buttons" },
+]
+
+[[injection]]
+id = "click"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_settings_click"
+helper = "hooks/click.rs"
+bindings = [
+  { name = "mod_id", ty = "&str", value = "mod_id" },
+  { name = "button", ty = "usize", value = "button" },
+]
+
+[[injection]]
+id = "chat"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::chat::Game<'_>::handle_chat_input"
+helper = "hooks/chat.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "message", ty = "&str", value = "message" },
+]
+
+[[injection]]
+id = "reach"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::Game<'_>::reach"
+helper = "hooks/reach.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "self" },
+]
+
+[[injection]]
+id = "mob-hit"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::Game<'_>::mob_hit"
+helper = "hooks/mob_hit.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "self" },
+]
+
+[[injection]]
+id = "send-state"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::remote::Game<'_>::remote_send_state"
+helper = "hooks/send_state.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+]
+
+[[injection]]
+id = "mining"
+kind = "HEAD"
+target = "horizon_client::game::remote::Game<'_>::remote_mining"
+helper = "hooks/mining.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+]
+
+[[injection]]
+id = "connect"
+kind = "HEAD"
+target = "horizon_client::game::remote::Game<'_>::connect_server"
+helper = "hooks/connect.rs"
+bindings = [
+  { name = "address", ty = "&str", value = "address" },
+  { name = "name", ty = "&str", value = "name" },
+]
+
+[[module]]
+id = "flags"
+file = "crates/horizon-client/src/lan/guest.rs"
+name = "asteroid_flags"
+visibility = "pub"
+source = "flags.rs"
+
+[[injection]]
+id = "god-hit"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::creatures::Game<'_>::hurt_player_from"
+helper = "hooks/god_hit.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+]
+
+[[injection]]
+id = "god-world"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::creatures::Game<'_>::hurt_player_by"
+helper = "hooks/god_world.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+]
+
+[[injection]]
+id = "guest-creative"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::lan::guest::Guest::creative"
+helper = "hooks/guest_creative.rs"
+bindings = [
+  { name = "guest", ty = "&crate::lan::guest::Guest", value = "self" },
+]
+
+[[injection]]
+id = "god-health"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::health::PlayerMotion::hurt_caused_by"
+helper = "hooks/god_health.rs"
+bindings = [
+  { name = "resources", ty = "&HealthResources", value = "resources" },
+  { name = "source", ty = "DamageTypeId", value = "source" },
+]
+
+[[injection]]
+id = "god-set"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::health::PlayerMotion::set_health"
+helper = "hooks/god_set.rs"
+bindings = [
+  { name = "player", ty = "&crate::motion::PlayerMotion", value = "&*self" },
+  { name = "value", ty = "f32", value = "value" },
+  { name = "absorption", ty = "bool", value = "absorption" },
+]
+
+[[injection]]
+id = "hunger-exhaustion"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::hunger::PlayerMotion::cause_food_exhaustion"
+helper = "hooks/hunger_exhaustion.rs"
+bindings = []
+
+[[injection]]
+id = "hunger-tick"
+kind = "HEAD"
+target = "horizon_client::hunger::PlayerMotion::food_tick"
+helper = "hooks/hunger_tick.rs"
+bindings = [
+  { name = "player", ty = "&mut PlayerMotion", value = "&mut *self" },
+]
+
+[[injection]]
+id = "look"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::Game<'_>::apply_mouse_look"
+helper = "hooks/look.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+]
+
+[[injection]]
+id = "late-hud"
+kind = "HEAD"
+target = "horizon_client::game::scoreboard::Game<'_>::draw_tab_list"
+helper = "hooks/late_hud.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "batch", ty = "&mut horizon_client::hud::HudBatch", value = "&mut *batch" },
+]
+
+[[injection]]
+id = "own-name"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::names::Game<'_>::own_profile_name"
+helper = "hooks/own_name.rs"
+bindings = []
+
+[[module]]
+id = "names"
+file = "crates/horizon-client-render/src/chat.rs"
+name = "asteroid_names"
+visibility = "pub"
+source = "names.rs"
+
+[[injection]]
+id = "chat-name-system"
+kind = "MODIFY_ARG"
+target = "horizon_client_render::chat::Chat::add_message"
+selector = "self.push_message"
+require = 1
+ordinal = 0
+argument = 1
+helper = "hooks/chat_name.rs"
+bindings = [
+  { name = "value", ty = "Message", value = "$value" },
+]
+
+[[injection]]
+id = "chat-name-player"
+kind = "MODIFY_ARG"
+target = "horizon_client_render::chat::Chat::add_player_message"
+selector = "self.push_message"
+require = 1
+ordinal = 0
+argument = 1
+helper = "hooks/chat_name.rs"
+bindings = [
+  { name = "value", ty = "Message", value = "$value" },
+]
+
+[[module]]
+id = "stream"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_stream"
+source = "stream.rs"
+
+[[module]]
+id = "gui"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_gui"
+source = "gui.rs"
+
+[[module]]
+id = "base"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_base"
+source = "base.rs"
+
+[[module]]
+id = "pvp"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_pvp"
+source = "pvp.rs"
+
+[[injection]]
+id = "typing"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::Game<'_>::mapped_key"
+helper = "hooks/typing.rs"
+bindings = [
+  { name = "pressed", ty = "bool", value = "pressed" },
+]
+
+[[injection]]
+id = "play-mouse"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::Game<'_>::play_mouse"
+helper = "hooks/play_mouse.rs"
+bindings = [
+  { name = "pressed", ty = "bool", value = "pressed" },
+  { name = "button", ty = "MouseButton", value = "button" },
+]
+
+[[injection]]
+id = "wheel"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_wheel"
+helper = "hooks/wheel.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "steps", ty = "f32", value = "steps" },
+  { name = "claimed", ty = "&mut bool", value = "&mut *claimed" },
+]
+
+[[injection]]
+id = "totem"
+kind = "HEAD"
+target = "horizon_client::game::totem::Game<'_>::remote_totem"
+helper = "hooks/totem.rs"
+bindings = [
+  { name = "id", ty = "i32", value = "id" },
+]
+
+[[module]]
+id = "overlay"
+file = "crates/horizon-hdr/src/lib.rs"
+name = "asteroid_overlay"
+visibility = "pub"
+source = "overlay.rs"

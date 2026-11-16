@@ -6,7 +6,7 @@
 // It plays through the keys and the mouse, as a player would. `#` commands.
 //
 // Not made or endorsed by the Baritone project; no Baritone code is used.
-use super::Game;
+use super::{Game, Screen};
 use crate::game::asteroid_core::{self as core, State};
 use horizon_client::hud::HudBatch;
 use std::{
@@ -1754,6 +1754,33 @@ fn tunnel_tick(g: &mut Game<'_>, s: &mut State, rt: &mut Rt, dir: [i32; 2], mut 
 thread_local! {
     /// True while Baritone's own tick runs: its presses are its own, not the player's.
     static IN_TICK: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+thread_local! {
+    /// Set while the chat is open and Baritone drives: the screen was switched to
+    /// playing for the game's tick, and goes back to chat before the frame draws.
+    static CHAT_SPOOFED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Start of the game's tick (the window's): with the chat open and Baritone
+/// running, the screen reads as playing for the tick, so mining, movement and
+/// the rest of the tick go on. The chat box stays open; it is drawn as before.
+pub fn spoof_begin(g: &mut Game<'_>) {
+    if !g.native_window() || CHAT_SPOOFED.with(|c| c.get()) {
+        return;
+    }
+    if g.screen == Screen::Chat && running() {
+        CHAT_SPOOFED.with(|c| c.set(true));
+        g.screen = Screen::Playing;
+    }
+}
+
+/// Before the frame is drawn: the chat screen comes back, unless the game
+/// changed the screen during the tick (then that stays).
+pub fn spoof_end(g: &mut Game<'_>) {
+    if CHAT_SPOOFED.with(|c| c.replace(false)) && g.screen == Screen::Playing {
+        g.screen = Screen::Chat;
+    }
 }
 
 /// Whether Baritone has a process running.

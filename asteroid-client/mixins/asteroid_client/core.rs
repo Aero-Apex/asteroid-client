@@ -444,6 +444,17 @@ pub fn defs() -> Vec<Module> {
             n("Multiplier", 1.5, 1.0, 3.0, 0.05),
         ]),
         m("NoWeb", Movement, "Cobwebs don't slow you down.", vec![]),
+        // Aliases: each turns on the module it names, and off with it.
+        m("AutoSprint", Movement, "Sprints for you (turns on Sprint).", vec![]),
+        m("BunnyHop", Movement, "Jumps whenever you move on the ground (turns on BHop).", vec![]),
+        m("FastLadder", Movement, "Climbs ladders and vines faster (turns on FastClimb).", vec![]),
+        m("NoSlowdown", Movement, "Items you use don't slow you (turns on NoSlow).", vec![]),
+        m("NoLevitation", Movement, "Stops levitation lifting you (turns on AntiLevitation).", vec![]),
+        m("InvWalk", Movement, "Walks with your inventory open (turns on GUIMove).", vec![]),
+        m("AntiKnockback", Combat, "Takes less knockback (turns on Velocity).", vec![]),
+        m("FastBreak", World, "Breaks blocks with no delay between them (turns on NoBreakDelay).", vec![]),
+        m("HealthTags", Render, "Shows health on name tags (turns on NameTags).", vec![]),
+        m("ChestEsp", Render, "Highlights chests and containers (turns on StorageESP).", vec![]),
         m("CreativeFlight", Movement, "Lets you fly the way creative players do, double jump to toggle.", vec![
             n("Speed", 1.0, 0.1, 5.0, 0.1),
         ]),
@@ -1081,6 +1092,12 @@ pub fn on_tick(g: &mut Game<'_>) {
         flags::set_safety(s.on("NoFall") || s.on("Flight"), s.on("NoHunger"));
         for (i, on) in events {
             let name = s.modules[i].name;
+            if let Some(target) = alias_target(name)
+                && let Some(t) = s.index(target)
+                && s.modules[t].on != on
+            {
+                s.set_on(t, on);
+            }
             if name == "Creative" {
                 use horizon_client::command::args::GameMode;
                 g.set_mode(if on { GameMode::Creative } else { GameMode::Survival });
@@ -1237,6 +1254,23 @@ pub fn tab_name(current: &str, real: &str) -> Option<String> {
             last.clone_from(&shown);
             shown
         })
+    })
+}
+
+/// The module an alias turns on and off with it.
+fn alias_target(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "AutoSprint" => "Sprint",
+        "BunnyHop" => "BHop",
+        "FastLadder" => "FastClimb",
+        "NoSlowdown" => "NoSlow",
+        "NoLevitation" => "AntiLevitation",
+        "InvWalk" => "GUIMove",
+        "AntiKnockback" => "Velocity",
+        "FastBreak" => "NoBreakDelay",
+        "HealthTags" => "Nametags",
+        "ChestEsp" => "StorageESP",
+        _ => return None,
     })
 }
 

@@ -34,6 +34,12 @@ name = "asteroid_movement"
 source = "movement.rs"
 
 [[module]]
+id = "extra"
+file = "crates/horizon-client/src/game.rs"
+name = "asteroid_extra"
+source = "extra.rs"
+
+[[module]]
 id = "render"
 file = "crates/horizon-client/src/game.rs"
 name = "asteroid_render"
@@ -63,6 +69,46 @@ file = "crates/horizon-client/src/game/remote.rs"
 name = "asteroid_tab"
 visibility = "pub"
 source = "tab.rs"
+
+[[injection]]
+id = "render-fog"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_render_fog"
+helper = "hooks/render_fog.rs"
+bindings = [
+  { name = "fog", ty = "&mut horizon_client_render::fog::FogData", value = "&mut *fog" },
+]
+
+[[injection]]
+id = "camera-distance"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_camera_distance"
+helper = "hooks/camera_distance.rs"
+bindings = [
+  { name = "distance", ty = "&mut f32", value = "&mut *distance" },
+]
+
+[[injection]]
+id = "entity-outline"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_entity_outline"
+helper = "hooks/entity_outline.rs"
+bindings = [
+  { name = "entity_id", ty = "u32", value = "entity_id" },
+  { name = "kind", ty = "&str", value = "kind" },
+  { name = "outline", ty = "&mut Option<u32>", value = "&mut *outline" },
+]
+
+[[injection]]
+id = "client-chat"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::native_hooks::Game<'_>::native_client_chat_received"
+helper = "hooks/chat_received.rs"
+bindings = [
+  { name = "message", ty = "&horizon_client::text::Text", value = "&*message" },
+  { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
+]
 
 [[injection]]
 id = "tick"

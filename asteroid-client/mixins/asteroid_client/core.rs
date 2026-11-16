@@ -467,6 +467,35 @@ pub fn defs() -> Vec<Module> {
         m("Fish", Movement, "Sinks through water when you aren't holding jump.", vec![
             n("Speed", 0.1, 0.02, 0.5, 0.01),
         ]),
+        m("NoClip", Movement, "Moves through blocks, as a spectator does (single player: sets spectator mode while on).", vec![]),
+        m("ScaffoldWalk", Movement, "Places blocks under you as you walk (turns on Scaffold).", vec![]),
+        m("NoFog", Render, "Takes the fog out of the world.", vec![]),
+        m("NoBackground", Render, "Takes the sky and clouds away.", vec![]),
+        m("CameraDistance", Render, "Sets how far the third-person camera sits from you.", vec![
+            n("Distance", 4.0, 0.0, 64.0, 1.0),
+        ]),
+        m("TrueSight", Render, "Outlines every entity, through walls.", vec![]),
+        m("Radar", Render, "Lists the nearest players and how far away they are.", vec![
+            n("Range", 64.0, 8.0, 256.0, 8.0),
+        ]),
+        m("MobEsp", Render, "Outlines mobs, through walls.", vec![]),
+        m("PlayerEsp", Render, "Outlines players, through walls.", vec![]),
+        m("ItemEsp", Render, "Outlines dropped items, through walls.", vec![]),
+        m("BarrierEsp", Render, "Highlights barrier blocks.", vec![]),
+        m("PortalEsp", Render, "Highlights nether and end portals.", vec![]),
+        m("OpenWaterEsp", Render, "Highlights water.", vec![]),
+        m("AntiSpam", Misc, "Drops a chat line that repeats within a few seconds.", vec![
+            n("Seconds", 5.0, 1.0, 60.0, 1.0),
+        ]),
+        m("Excavator", World, "Tunnels straight ahead through blocks (Baritone's #tunnel).", vec![]),
+        m("TreeBot", World, "Chops the trees it finds (Baritone's #mine *_log).", vec![]),
+        m("AutoFarm", World, "Harvests and replants the crops around it (Baritone's #farm).", vec![]),
+        m("TillAura", World, "Tills the dirt in reach with a hoe.", vec![
+            n("Range", 4.0, 1.0, 4.5, 0.5),
+        ]),
+        m("BonemealAura", World, "Bone-meals the crops and saplings in reach.", vec![
+            n("Range", 4.0, 1.0, 4.5, 0.5),
+        ]),
         m("Scaffold", Movement, "Places blocks under you as you walk.", vec![
             b("Tower", true),
         ]),
@@ -1109,6 +1138,7 @@ pub fn on_tick(g: &mut Game<'_>) {
             crate::game::asteroid_world::toggled(g, s, name, on);
             crate::game::asteroid_misc::toggled(g, s, name, on);
             crate::game::asteroid_baritone::toggled(g, s, name, on);
+            crate::game::asteroid_extra::toggled(g, s, name, on);
             if s.on("HUD") || name != "HUD" {
                 s.say(format!("{name} {}", if on { "ON" } else { "OFF" }));
             }
@@ -1123,6 +1153,7 @@ pub fn on_tick(g: &mut Game<'_>) {
             crate::game::asteroid_player::tick(g, s);
             crate::game::asteroid_movement::tick(g, s);
             crate::game::asteroid_baritone::tick(g, s);
+            crate::game::asteroid_extra::tick(g, s);
             crate::game::asteroid_render::tick(g, s);
             crate::game::asteroid_world::tick(g, s);
         }
@@ -1203,6 +1234,7 @@ pub fn on_hud(g: &mut Game<'_>, batch: &mut HudBatch, corners: &mut horizon_clie
         if g.player.is_some() {
             crate::game::asteroid_render::hud(g, s, batch, corners);
             crate::game::asteroid_baritone::hud(g, s, batch);
+            crate::game::asteroid_extra::hud(g, s, batch);
             crate::game::asteroid_base::hud(g, s, batch);
         }
     });
@@ -1270,6 +1302,7 @@ fn alias_target(name: &str) -> Option<&'static str> {
         "FastBreak" => "NoBreakDelay",
         "HealthTags" => "Nametags",
         "ChestEsp" => "StorageESP",
+        "ScaffoldWalk" => "Scaffold",
         _ => return None,
     })
 }

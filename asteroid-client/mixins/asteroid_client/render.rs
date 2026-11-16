@@ -17,6 +17,9 @@ use std::{
 const STORAGE: u8 = 1;
 const LISTED: u8 = 2;
 const ORE: u8 = 4;
+const BARRIER: u8 = 8;
+const PORTAL: u8 = 16;
+const WATER: u8 = 32;
 
 #[derive(Default)]
 struct Rt {
@@ -66,7 +69,7 @@ pub fn toggled(g: &mut Game<'_>, s: &mut State, name: &str, on: bool) {
             }
             ("Breadcrumbs", false) => rt.trail.clear(),
             ("LogoutSpots", false) => rt.logouts.clear(),
-            ("StorageESP" | "BlockESP" | "Xray", true) => {
+            ("StorageESP" | "BlockESP" | "Xray" | "BarrierEsp" | "PortalEsp" | "OpenWaterEsp", true) => {
                 rt.found.clear();
                 rt.queue.clear();
                 rt.kinds.clear();
@@ -170,12 +173,22 @@ fn kinds_of(g: &Game<'_>, s: &State, rt: &mut Rt, state: horizon_world::registry
     if s.on("Xray") && rt.lists.1.iter().any(|b| b == name) {
         k |= ORE;
     }
+    if s.on("BarrierEsp") && name == "minecraft:barrier" {
+        k |= BARRIER;
+    }
+    if s.on("PortalEsp") && matches!(name, "minecraft:nether_portal" | "minecraft:end_portal" | "minecraft:end_gateway") {
+        k |= PORTAL;
+    }
+    if s.on("OpenWaterEsp") && name == "minecraft:water" {
+        k |= WATER;
+    }
     rt.kinds.insert(state.0, k);
     k
 }
 
 fn scan(g: &Game<'_>, s: &State, rt: &mut Rt) {
-    let any = s.on("StorageESP") || s.on("BlockESP") || s.on("Xray") || s.on("StashFinder");
+    let any = s.on("StorageESP") || s.on("BlockESP") || s.on("Xray") || s.on("StashFinder")
+        || s.on("BarrierEsp") || s.on("PortalEsp") || s.on("OpenWaterEsp");
     if !any {
         if !rt.found.is_empty() {
             rt.found.clear();
@@ -351,7 +364,7 @@ fn world_overlays(g: &Game<'_>, s: &State, rt: &Rt, batch: &mut HudBatch, cam: &
     let storage = s.on("StorageESP");
     let listed = s.on("BlockESP");
     let ores = s.on("Xray");
-    if storage || listed || ores {
+    if storage || listed || ores || s.on("BarrierEsp") || s.on("PortalEsp") || s.on("OpenWaterEsp") {
         for hits in rt.found.values() {
             for (p, k) in hits {
                 let (color, tracer) = if listed && k & LISTED != 0 {
@@ -360,6 +373,12 @@ fn world_overlays(g: &Game<'_>, s: &State, rt: &Rt, batch: &mut HudBatch, cam: &
                     (ore_color(&core::block_name(g, *p)), false)
                 } else if storage && k & STORAGE != 0 {
                     (0xFF_FF_A5_00, s.b("StorageESP", "Tracers"))
+                } else if s.on("BarrierEsp") && k & BARRIER != 0 {
+                    (0xFF_FF_30_30, false)
+                } else if s.on("PortalEsp") && k & PORTAL != 0 {
+                    (0xFF_B0_40_FF, false)
+                } else if s.on("OpenWaterEsp") && k & WATER != 0 {
+                    (0xFF_30_80_FF, false)
                 } else {
                     continue;
                 };

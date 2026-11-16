@@ -139,6 +139,7 @@ pub fn tick(g: &mut Game<'_>, s: &mut State) {
             let name = core::block_name(g, f);
             name.contains("ladder") || name.contains("vine") || name.contains("scaffolding")
         });
+        let in_web = feet.is_some_and(|f| core::block_name(g, f).contains("cobweb"));
         let hole_below = feet.and_then(|f| {
             (1..=3).map(|d| [f[0], f[1] - d, f[2]]).find(|p| crate::game::asteroid_combat::is_hole(g, *p))
         });
@@ -198,6 +199,66 @@ pub fn tick(g: &mut Game<'_>, s: &mut State) {
                 0.0
             };
             p.velocity = Vec3::new(x, y, z);
+        }
+        // Glide: a slow fall with nothing else flying the player.
+        if s.on("Glide") && !on_ground && !p.fall_flying && !s.on("Flight") && !s.on("Jetpack") && p.velocity.y < 0.0 {
+            p.velocity.y = p.velocity.y.max(-s.n("Glide", "Speed"));
+        }
+        // Jetpack: jump rises, sneak drops, nothing hovers.
+        if s.on("Jetpack") && !on_ground && !p.fall_flying && !s.on("Flight") {
+            let speed = s.n("Jetpack", "Speed");
+            p.velocity.y = if jump {
+                speed
+            } else if sneak {
+                -speed
+            } else {
+                0.0
+            };
+        }
+        // CreativeFlight: the game's own creative flight, with the chosen speed.
+        if s.on("CreativeFlight") && !s.on("Flight") {
+            p.may_fly = true;
+            p.flying_speed = (0.05 * s.n("CreativeFlight", "Speed")) as f32;
+        }
+        // Dolphin: a swim at the chosen speed in the way you move.
+        if s.on("Dolphin") && fluid_in
+            && let Some((x, z)) = dir
+        {
+            let speed = s.n("Dolphin", "Speed");
+            p.velocity.x = x * speed;
+            p.velocity.z = z * speed;
+        }
+        // Fish: in water, sink unless jump is held.
+        if s.on("Fish") && fluid_in && !jump {
+            p.velocity.y = p.velocity.y.min(-s.n("Fish", "Speed"));
+        }
+        // AutoSwim: in water, rise to the surface unless sneaking.
+        if s.on("AutoSwim") && fluid_in && !sneak {
+            p.velocity.y = p.velocity.y.max(s.n("AutoSwim", "Speed"));
+        }
+        // ExtraElytra: a push while gliding, up to a speed cap so it can't run away.
+        if s.on("ExtraElytra") && p.fall_flying {
+            let boost = s.n("ExtraElytra", "Boost");
+            let h = (p.velocity.x * p.velocity.x + p.velocity.z * p.velocity.z).sqrt();
+            if h > 0.0 && h < 2.5 {
+                p.velocity.x *= boost;
+                p.velocity.z *= boost;
+            }
+        }
+        // SpeedHack: on the ground, a multiple of sprint speed in the way you move.
+        if s.on("SpeedHack") && on_ground && !sneak
+            && let Some((x, z)) = dir
+        {
+            let target = SPRINT * s.n("SpeedHack", "Multiplier");
+            p.velocity.x = x * target;
+            p.velocity.z = z * target;
+        }
+        // NoWeb: a cobweb doesn't hold you back.
+        if s.on("NoWeb") && in_web && !p.flying
+            && let Some((x, z)) = dir
+        {
+            p.velocity.x = x * SPRINT * 0.8;
+            p.velocity.z = z * SPRINT * 0.8;
         }
         let flying = p.flying || p.fall_flying || s.on("Flight");
         // Speed and BHop

@@ -428,6 +428,34 @@ pub fn defs() -> Vec<Module> {
         ]),
         m("GUIMove", Movement, "Lets you walk with your inventory open.", vec![]),
         m("Blink", Movement, "Holds your movement back from the server until turned off.", vec![]),
+        m("Glide", Movement, "Falls slowly, like a parachute.", vec![
+            n("Speed", 0.12, 0.02, 0.5, 0.01),
+        ]),
+        m("Jetpack", Movement, "Hold jump to rise, sneak to drop, and hover otherwise.", vec![
+            n("Speed", 0.6, 0.1, 2.0, 0.05),
+        ]),
+        m("AutoSwim", Movement, "Keeps you at the surface of water.", vec![
+            n("Speed", 0.3, 0.05, 1.0, 0.05),
+        ]),
+        m("ExtraElytra", Movement, "Adds speed while you glide with elytra.", vec![
+            n("Boost", 1.3, 1.0, 3.0, 0.05),
+        ]),
+        m("SpeedHack", Movement, "Multiplies your horizontal speed on the ground.", vec![
+            n("Multiplier", 1.5, 1.0, 3.0, 0.05),
+        ]),
+        m("NoWeb", Movement, "Cobwebs don't slow you down.", vec![]),
+        m("CreativeFlight", Movement, "Lets you fly the way creative players do, double jump to toggle.", vec![
+            n("Speed", 1.0, 0.1, 5.0, 0.1),
+        ]),
+        m("VClip", Movement, "Moves you up or down through blocks once, then turns off.", vec![
+            n("Distance", -3.0, -20.0, 20.0, 1.0),
+        ]),
+        m("Dolphin", Movement, "Swims faster through water.", vec![
+            n("Speed", 0.35, 0.1, 1.0, 0.05),
+        ]),
+        m("Fish", Movement, "Sinks through water when you aren't holding jump.", vec![
+            n("Speed", 0.1, 0.02, 0.5, 0.01),
+        ]),
         m("Scaffold", Movement, "Places blocks under you as you walk.", vec![
             b("Tower", true),
         ]),
@@ -492,6 +520,12 @@ pub fn defs() -> Vec<Module> {
             b("Weather", true),
             b("ViewBobbing", true),
         ]),
+        m("NoWeather", Render, "Clears rain and thunder.", vec![]),
+        m("NoHurtcam", Render, "Stops the camera shaking when you are hurt.", vec![]),
+        m("Zoom", Render, "Narrows your view while it is on.", vec![
+            n("Factor", 4.0, 1.5, 10.0, 0.5),
+        ]),
+        m("AntiBlind", Render, "Hides the blindness and darkness effects.", vec![]),
         m("CustomFOV", Render, "Sets your field of view.", vec![
             n("FOV", 100.0, 30.0, 150.0, 1.0),
         ]),
@@ -563,6 +597,8 @@ pub fn defs() -> Vec<Module> {
             b("Swing", true),
             n("Interval", 5.0, 1.0, 60.0, 1.0),
         ]),
+        m("Panic", Misc, "Turns every module off at once.", vec![]),
+        m("FastPlace", World, "Removes the delay between placing blocks.", vec![]),
         m("Spam", Misc, "Sends a chat message again and again.", vec![
             t("Message", "Asteroid Client on top!"),
             n("Delay", 10.0, 1.0, 300.0, 1.0),
@@ -1115,6 +1151,10 @@ pub fn on_frame(g: &mut Game<'_>, elapsed: Duration) {
         if std::mem::take(&mut s.gui.escape) && g.screen == Screen::Paused {
             g.screen = Screen::Playing;
             g.pause_menu = false;
+        }
+        // While Baritone runs the view is its to aim: the saved view follows it.
+        if s.gui.open && crate::game::asteroid_baritone::running() {
+            s.gui.view = Some((g.yaw, g.pitch));
         }
         if let Some((yaw, pitch)) = s.gui.view {
             g.yaw = yaw;

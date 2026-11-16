@@ -24,6 +24,27 @@ thread_local! {
 }
 
 pub fn toggled(g: &mut Game<'_>, s: &mut State, name: &str, on: bool) {
+    // Panic: everything off at once, and Panic itself back off. Done before the
+    // module's state is borrowed, since turning a module off comes back here.
+    if name == "VClip" && on {
+        // One move through the blocks, then off again.
+        let d = s.n("VClip", "Distance");
+        if let Some(p) = g.player.as_mut() {
+            p.position.y += d;
+            p.old_position = p.position;
+        }
+        s.turn_off("VClip");
+        return;
+    }
+    if name == "Panic" && on {
+        for i in 0..s.modules.len() {
+            if s.modules[i].name != "Panic" && s.modules[i].on {
+                s.set_on(i, false);
+            }
+        }
+        s.turn_off("Panic");
+        return;
+    }
     RT.with(|rt| {
         let rt = &mut *rt.borrow_mut();
         match (name, on) {
@@ -47,6 +68,11 @@ fn chat(g: &mut Game<'_>, message: &str) {
 }
 
 pub fn tick(g: &mut Game<'_>, s: &mut State) {
+    if s.on("FastPlace") {
+        // Blocks can be placed as fast as the clicks come.
+        g.use_delay = 0;
+        g.clicks.right_click_delay = 0;
+    }
     RT.with(|rt| {
         let rt = &mut *rt.borrow_mut();
         let now = s.ticks;

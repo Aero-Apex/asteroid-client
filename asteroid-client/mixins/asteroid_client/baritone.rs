@@ -1751,8 +1751,30 @@ fn tunnel_tick(g: &mut Game<'_>, s: &mut State, rt: &mut Rt, dir: [i32; 2], mut 
     left
 }
 
+thread_local! {
+    /// True while Baritone's own tick runs: its presses are its own, not the player's.
+    static IN_TICK: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Whether Baritone has a process running.
+pub fn running() -> bool {
+    RT.with(|rt| rt.borrow().process.is_some())
+}
+
+/// Whether the mouse press now being played is Baritone's own (so the ClickGUI
+/// doesn't stop it: the panel is open while Baritone mines).
+pub fn driving() -> bool {
+    IN_TICK.with(|c| c.get())
+}
+
 /// Once a tick, before the player moves.
 pub fn tick(g: &mut Game<'_>, s: &mut State) {
+    IN_TICK.with(|c| c.set(true));
+    tick_inner(g, s);
+    IN_TICK.with(|c| c.set(false));
+}
+
+fn tick_inner(g: &mut Game<'_>, s: &mut State) {
     RT.with(|rt| {
         let rt = &mut *rt.borrow_mut();
         rt.tick += 1;
@@ -1774,7 +1796,8 @@ pub fn tick(g: &mut Game<'_>, s: &mut State) {
             rt.moved = rt.tick;
             s.say("Baritone resumed");
         }
-        if !core::playing(g) || rt.paused || g.player.is_none() || s.gui.open {
+        // The ClickGUI doesn't stop it: the panel is drawn over the game, which keeps playing.
+        if !core::playing(g) || rt.paused || g.player.is_none() {
             press(g, rt, &[]);
             stop_hands(g, rt);
             return;

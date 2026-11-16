@@ -20,6 +20,8 @@ const ORE: u8 = 4;
 
 #[derive(Default)]
 struct Rt {
+    /// The field of view before Zoom changed it, while Zoom is on.
+    zoom_base: Option<f32>,
     /// Block state id → the kinds it counts as, per settings revision.
     kinds: HashMap<u32, u8>,
     lists: (Vec<String>, Vec<String>),
@@ -97,6 +99,27 @@ pub fn tick(g: &mut Game<'_>, s: &mut State) {
 }
 
 pub fn frame(g: &mut Game<'_>, s: &mut State, _elapsed: Duration) {
+    if s.on("NoWeather") {
+        g.world.weather.rain_level = (0.0, 0.0);
+        g.world.weather.thunder_level = (0.0, 0.0);
+    }
+    if s.on("NoHurtcam")
+        && let Some(p) = g.player.as_mut()
+    {
+        p.health.hurt_animation_time = 0;
+    }
+    if s.on("AntiBlind") {
+        g.potions.effects.list.retain(|e| !(e.id.ends_with("blindness") || e.id.ends_with("darkness")));
+    }
+    RT.with(|rt| {
+        let rt = &mut *rt.borrow_mut();
+        if s.on("Zoom") {
+            let base = *rt.zoom_base.get_or_insert(g.settings.fov);
+            g.settings.fov = base / s.n("Zoom", "Factor") as f32;
+        } else if let Some(base) = rt.zoom_base.take() {
+            g.settings.fov = base;
+        }
+    });
     if s.on("Fullbright")
         && let Some(r) = g.renderer.as_mut()
     {

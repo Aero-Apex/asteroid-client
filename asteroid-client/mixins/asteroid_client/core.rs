@@ -1060,7 +1060,7 @@ fn publish(s: &State) {
     }
     REACH_ENTITIES.with(|c| c.set(entities));
     HITBOX.with(|c| c.set(if s.on("Hitboxes") { s.n("Hitboxes", "Expand") } else { 0.0 }));
-    BLINK.with(|c| c.set(s.on("Blink") || s.on("Freecam")));
+    BLINK.with(|c| c.set(s.on("Blink")));
     NOFALL_PACKET.with(|c| c.set(s.on("NoFall") && s.c("NoFall", "Mode") == "Packet"));
     FLIGHT_SAFE.with(|c| c.set(s.on("Flight")));
     NO_BREAK_DELAY.with(|c| c.set(s.on("NoBreakDelay")));

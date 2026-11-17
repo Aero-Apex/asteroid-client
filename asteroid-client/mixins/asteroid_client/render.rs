@@ -123,6 +123,8 @@ pub fn frame(g: &mut Game<'_>, s: &mut State, _elapsed: Duration) {
             g.settings.fov = base;
         }
     });
+    // Fullbright: the renderer flag also gives the frame full night vision
+    // (the `night-vision` hook), which shader packs like Complementary brighten from.
     if s.on("Fullbright")
         && let Some(r) = g.renderer.as_mut()
     {
@@ -859,7 +861,15 @@ fn hud_text(g: &Game<'_>, s: &State, batch: &mut HudBatch, corners: &mut Corners
     }
     if !info.is_empty() {
         let w = info.iter().map(|l| g.native_text_width(&l.0)).fold(0.0, f32::max);
-        let (_, y) = corners.place(Corner::BottomRight, w, info.len() as f32 * 10.0);
+        let h = info.len() as f32 * 10.0;
+        let (_, mut y) = corners.place(Corner::BottomRight, w, h);
+        // On a narrow screen the lines would reach over the hotbar (182 wide in the
+        // middle): they sit above it then, and above the hearts, food, armour and air.
+        let hotbar_right = batch.width / 2.0 + 91.0 + 4.0;
+        let status_top = batch.height - 60.0;
+        if batch.width - w - 3.0 < hotbar_right && y + h > status_top {
+            y = status_top - h;
+        }
         for (i, (l, c)) in info.iter().enumerate() {
             let tw = g.native_text_width(l);
             text(g, batch, l, batch.width - tw - 3.0, y + i as f32 * 10.0, *c);

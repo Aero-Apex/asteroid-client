@@ -1783,6 +1783,11 @@ pub fn spoof_end(g: &mut Game<'_>) {
     }
 }
 
+/// Whether Baritone holds `key` down for the body (`press`).
+pub fn presses(key: KeyCode) -> bool {
+    RT.with(|rt| rt.try_borrow().is_ok_and(|rt| rt.keys.contains(&key)))
+}
+
 /// Whether Baritone has a process running.
 pub fn running() -> bool {
     RT.with(|rt| rt.borrow().process.is_some())
@@ -2624,7 +2629,7 @@ fn survive(g: &mut Game<'_>, s: &State, rt: &mut Rt) -> bool {
                 // a fight. Line of sight to its middle misses mobs at corners.
                 let (yaw, pitch) = (g.yaw, g.pitch);
                 core::look_at(g, m.t.center);
-                if g.mob_hit().is_some_and(|(i, _)| i == m.t.index) {
+                if g.mob_hit().is_some_and(|(i, ..)| i == m.t.index) {
                     if let Some(w) = weapon_slot(g) {
                         g.selected = w;
                     }
@@ -2788,7 +2793,7 @@ fn survive(g: &mut Game<'_>, s: &State, rt: &mut Rt) -> bool {
         core::look_at(g, m.t.center);
         let pos = g.player.as_ref().map(|p| [p.position.x, p.position.y, p.position.z]).unwrap_or(eye);
         let reach = m.t.distance < 2.9;
-        if reach && core::charged(g) && g.mob_hit().is_some_and(|(i, _)| i == m.t.index) {
+        if reach && core::charged(g) && g.mob_hit().is_some_and(|(i, ..)| i == m.t.index) {
             core::click(g, false);
             press(g, rt, &[]);
         } else if reach && !core::charged(g) && m.t.distance < 2.2 && m.kind != Danger::Ranged {

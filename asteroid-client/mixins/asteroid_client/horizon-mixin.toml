@@ -1,13 +1,13 @@
 [mod]
 id = "asteroid_client"
-version = "2.1.0"
+version = "2.2.0"
 priority = 90
 
 # Hooks the native hook points and a few game functions (reach, mob_hit,
 # chat input, movement packets, mining, connecting), so it pins the commit it
 # was built and tested on.
 [compatibility]
-horizon_revision = "66f3981f522b24c250b21523a70080965b940424"
+horizon_revision = "9f42064c11efe7ef3e5ed2baad7ddc2a3b36eea0"
 
 [[module]]
 id = "core"
@@ -86,6 +86,41 @@ target = "horizon_client::game::native_hooks::Game<'_>::native_camera_distance"
 helper = "hooks/camera_distance.rs"
 bindings = [
   { name = "distance", ty = "&mut f32", value = "&mut *distance" },
+]
+
+[[injection]]
+id = "camera-pose"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_camera_pose"
+helper = "hooks/camera_pose.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "position", ty = "&mut [f64; 3]", value = "&mut *position" },
+  { name = "yaw", ty = "&mut f32", value = "&mut *yaw" },
+  { name = "pitch", ty = "&mut f32", value = "&mut *pitch" },
+]
+
+[[injection]]
+id = "night-vision"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::sculk::Game<'_>::night_vision_intensity"
+helper = "hooks/night_vision.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "self" },
+]
+
+[[injection]]
+id = "movement-input"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_movement_input"
+helper = "hooks/movement_input.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "forward", ty = "&mut f32", value = "&mut *forward" },
+  { name = "strafe", ty = "&mut f32", value = "&mut *strafe" },
+  { name = "jump", ty = "&mut bool", value = "&mut *jump" },
+  { name = "sneak", ty = "&mut bool", value = "&mut *sneak" },
 ]
 
 [[injection]]
@@ -332,7 +367,7 @@ bindings = [
 id = "look"
 kind = "HEAD"
 cancellable = true
-target = "horizon_client::game::Game<'_>::apply_mouse_look"
+target = "horizon_client::game::pointer_capture::Game<'_>::apply_mouse_look"
 helper = "hooks/look.rs"
 bindings = [
   { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
@@ -417,7 +452,7 @@ source = "pvp.rs"
 id = "typing"
 kind = "HEAD"
 cancellable = true
-target = "horizon_client::game::Game<'_>::mapped_key"
+target = "horizon_client::game::play_input::Game<'_>::mapped_key"
 helper = "hooks/typing.rs"
 bindings = [
   { name = "pressed", ty = "bool", value = "pressed" },
@@ -427,7 +462,7 @@ bindings = [
 id = "play-mouse"
 kind = "HEAD"
 cancellable = true
-target = "horizon_client::game::Game<'_>::play_mouse"
+target = "horizon_client::game::play_input::Game<'_>::play_mouse"
 helper = "hooks/play_mouse.rs"
 bindings = [
   { name = "pressed", ty = "bool", value = "pressed" },

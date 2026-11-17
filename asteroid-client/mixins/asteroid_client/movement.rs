@@ -1,12 +1,16 @@
 // Asteroid Client's movement modules: Flight, Speed, Sprint, NoFall, Step,
 // Spider, Jesus, BHop, AutoWalk, Sneak, SafeWalk, Parkour, NoSlow, ElytraFly,
 // HighJump, LongJump, AirJump, AntiLevitation, FastClimb, Anchor,
-// ReverseStep, BoatFly, GUIMove, Scaffold, and Freecam's body. Blink and
+// ReverseStep, BoatFly, GUIMove, Scaffold, and Freecam's camera. Blink and
 // NoFall's packet mode hook `remote_send_state`.
 use super::{Game, Screen};
 use crate::game::asteroid_core::{self as core, State};
 use horizon_core::geometry::Vec3;
-use std::{cell::RefCell, time::Duration};
+use std::{
+    cell::RefCell,
+    time::{Duration, Instant},
+};
+use super::perspective::CameraType;
 use winit::keyboard::KeyCode;
 
 #[derive(Default)]
@@ -14,17 +18,34 @@ struct Rt {
     was_on_ground: bool,
     jump_was_down: bool,
     fly_ticks: u32,
-    /// Freecam: where the body stays, and how it was.
+    /// Freecam's camera, apart from the body.
     freecam: Option<Freecam>,
 }
+/// Freecam: a camera of its own (`native_camera_pose`). The body stays the player's:
+/// it keeps its game mode and sends its movement as always, so Baritone (or anything
+/// else) can walk, mine and build with it while the camera looks around.
 struct Freecam {
-    position: Vec3,
+    /// The camera's eye, yaw and pitch.
+    position: [f64; 3],
     yaw: f32,
     pitch: f32,
-    spectator: bool,
-    may_fly: bool,
-    flying: bool,
+    /// The view before Freecam: restored when it turns off.
+    camera_type: CameraType,
+    /// Blocks a second (the module's Speed is blocks a tick).
+    speed: f64,
+    /// When the camera last moved, for a frame's step.
+    last: Option<Instant>,
 }
+/// The keys that move the camera while Freecam is on, not the body.
+const MOVE_KEYS: [KeyCode; 7] = [
+    KeyCode::KeyW,
+    KeyCode::KeyA,
+    KeyCode::KeyS,
+    KeyCode::KeyD,
+    KeyCode::Space,
+    KeyCode::ShiftLeft,
+    KeyCode::ControlLeft,
+];
 thread_local! {
     static RT: RefCell<Rt> = RefCell::new(Rt::default());
 }
@@ -70,33 +91,8 @@ pub fn toggled(g: &mut Game<'_>, s: &mut State, name: &str, on: bool) {
                     p.auto_jump_enabled = on;
                 }
             }
-            ("Freecam", true) => {
-                if let Some(p) = g.player.as_mut() {
-                    rt.freecam = Some(Freecam {
-                        position: p.position,
-                        yaw: g.yaw,
-                        pitch: g.pitch,
-                        spectator: p.spectator,
-                        may_fly: p.may_fly,
-                        flying: p.flying,
-                    });
-                    p.spectator = true;
-                    p.may_fly = true;
-                    p.flying = true;
-                }
-            }
-            ("Freecam", false) => {
-                if let (Some(f), Some(p)) = (rt.freecam.take(), g.player.as_mut()) {
-                    p.position = f.position;
-                    p.old_position = f.position;
-                    p.velocity = Vec3::new(0.0, 0.0, 0.0);
-                    p.spectator = f.spectator;
-                    p.may_fly = f.may_fly;
-                    p.flying = f.flying;
-                    g.yaw = f.yaw;
-                    g.pitch = f.pitch;
-                }
-            }
+            ("Freecam", true) => freecam_start(g, rt, s.n("Freecam", "Speed")),
+            ("Freecam", false) => freecam_stop(g, rt),
             _ => {}
         }
     });
@@ -106,16 +102,34 @@ pub fn toggled(g: &mut Game<'_>, s: &mut State, name: &str, on: bool) {
 pub fn tick(g: &mut Game<'_>, s: &mut State) {
     RT.with(|rt| {
         let rt = &mut *rt.borrow_mut();
+        if s.on("Freecam") {
+            if rt.freecam.is_none() {
+                freecam_start(g, rt, s.n("Freecam", "Speed"));
+            }
+            if let Some(f) = rt.freecam.as_mut() {
+                f.speed = s.n("Freecam", "Speed") * 20.0;
+                // The body is drawn (third person) once the camera is out of its head.
+                if let Some(p) = g.player.as_ref() {
+                    let eye = [p.position.x, p.position.y + f64::from(p.dimensions.eye_height), p.position.z];
+                    let away = (0..3).map(|i| (f.position[i] - eye[i]).powi(2)).sum::<f64>() > 1.5 * 1.5;
+                    g.camera_type = if away { CameraType::ThirdPersonBack } else { f.camera_type };
+                }
+            }
+            // What the player holds moves the camera, not the body. Baritone's tick,
+            // after this one, presses the body's keys for itself.
+            for k in MOVE_KEYS {
+                if g.physical_keys.contains(&k) {
+                    g.keys.remove(&k);
+                }
+            }
+        } else if rt.freecam.is_some() {
+            freecam_stop(g, rt);
+        }
         let (forward, left, jump, sneak) = core::input(g);
         let playing = core::playing(g);
         let yaw = g.yaw;
         let dir = if playing { core::direction(yaw, forward, left) } else { None };
         keys(g, s, forward);
-        if s.on("Freecam") {
-            freecam(g, s, dir, jump, sneak);
-            rt.jump_was_down = jump;
-            return;
-        }
         gui_move(g, s);
         boat_fly(g, s, dir, jump, sneak);
         let jump_edge = jump && !rt.jump_was_down;
@@ -445,24 +459,110 @@ fn boat_fly(g: &mut Game<'_>, s: &State, dir: Option<(f64, f64)>, jump: bool, sn
     };
 }
 
-fn freecam(g: &mut Game<'_>, s: &State, dir: Option<(f64, f64)>, jump: bool, sneak: bool) {
-    let speed = s.n("Freecam", "Speed");
-    let Some(p) = g.player.as_mut() else {
+fn freecam_start(g: &mut Game<'_>, rt: &mut Rt, speed: f64) {
+    if rt.freecam.is_some() {
+        return;
+    }
+    let Some(p) = g.player.as_ref() else {
         return;
     };
-    p.spectator = true;
-    p.may_fly = true;
-    p.flying = true;
-    p.fall_distance = 0.0;
-    let (x, z) = dir.map_or((0.0, 0.0), |(x, z)| (x * speed, z * speed));
-    let y = if jump {
-        speed * 0.6
-    } else if sneak {
-        -speed * 0.6
-    } else {
-        0.0
+    let eye = [p.position.x, p.position.y + f64::from(p.dimensions.eye_height), p.position.z];
+    rt.freecam = Some(Freecam {
+        position: eye,
+        yaw: g.yaw,
+        pitch: g.pitch,
+        camera_type: g.camera_type,
+        speed: speed * 20.0,
+        last: None,
+    });
+}
+
+fn freecam_stop(g: &mut Game<'_>, rt: &mut Rt) {
+    let Some(f) = rt.freecam.take() else {
+        return;
     };
-    p.velocity = Vec3::new(x, y, z);
+    g.camera_type = f.camera_type;
+    // The keys still held move the body again.
+    if core::playing(g) {
+        for k in MOVE_KEYS {
+            if g.physical_keys.contains(&k) {
+                g.keys.insert(k);
+            }
+        }
+    }
+}
+
+/// `native_movement_input` with Freecam on: the body moves by the keys Baritone and
+/// the modules press, never by those the player holds (they move the camera). Read
+/// where the body's movement is built, so a held key or its repeats never reach it.
+pub fn movement_input(g: &Game<'_>, forward: &mut f32, strafe: &mut f32, jump: &mut bool, sneak: &mut bool) {
+    if !freecam_on() {
+        return;
+    }
+    let body = |k: KeyCode| {
+        crate::game::asteroid_baritone::presses(k) || (g.keys.contains(&k) && !g.physical_keys.contains(&k))
+    };
+    let axis = |plus: KeyCode, minus: KeyCode| f32::from(i8::from(body(plus)) - i8::from(body(minus)));
+    let (mut f, mut l) = (axis(KeyCode::KeyW, KeyCode::KeyS), axis(KeyCode::KeyA, KeyCode::KeyD));
+    if f != 0.0 && l != 0.0 {
+        // Input.moveVector is normalized: a diagonal is no faster.
+        f *= std::f32::consts::FRAC_1_SQRT_2;
+        l *= std::f32::consts::FRAC_1_SQRT_2;
+    }
+    *forward = f;
+    *strafe = l;
+    *jump = body(KeyCode::Space);
+    *sneak = body(KeyCode::ShiftLeft);
+}
+
+/// Whether Freecam's camera is out.
+pub fn freecam_on() -> bool {
+    RT.with(|rt| rt.try_borrow().is_ok_and(|rt| rt.freecam.is_some()))
+}
+
+/// `apply_mouse_look` with Freecam on: the mouse turns the camera (`Entity.turn`),
+/// not the body.
+pub fn freecam_turn(x: f64, y: f64) {
+    RT.with(|rt| {
+        if let Ok(mut rt) = rt.try_borrow_mut()
+            && let Some(f) = rt.freecam.as_mut()
+        {
+            f.yaw += (x * 0.15) as f32;
+            f.pitch = (f.pitch + (y * 0.15) as f32).clamp(-90.0, 90.0);
+        }
+    });
+}
+
+/// `native_camera_pose`: with Freecam on, the frame is drawn from its camera, moved
+/// by the keys the player holds (W A S D, Space up, Shift down, Ctrl faster) at the
+/// frame's own pace, so it is smooth whatever the tick rate.
+pub fn camera_pose(g: &Game<'_>, position: &mut [f64; 3], yaw: &mut f32, pitch: &mut f32) {
+    RT.with(|rt| {
+        let Ok(mut rt) = rt.try_borrow_mut() else {
+            return;
+        };
+        let Some(f) = rt.freecam.as_mut() else {
+            return;
+        };
+        let now = Instant::now();
+        let dt = f.last.map_or(0.0, |l| now.duration_since(l).as_secs_f64()).min(0.1);
+        f.last = Some(now);
+        if matches!(g.screen, Screen::Playing) {
+            let held = |k: KeyCode| f64::from(u8::from(g.physical_keys.contains(&k)));
+            let forward = held(KeyCode::KeyW) - held(KeyCode::KeyS);
+            let left = held(KeyCode::KeyA) - held(KeyCode::KeyD);
+            let up = held(KeyCode::Space) - held(KeyCode::ShiftLeft);
+            let step = f.speed * dt * (1.0 + held(KeyCode::ControlLeft));
+            if let Some((x, z)) = core::direction(f.yaw, forward, left) {
+                f.position[0] += x * step;
+                f.position[2] += z * step;
+            }
+            f.position[1] += up * step;
+        }
+        *position = f.position;
+        *yaw = f.yaw;
+        *pitch = f.pitch;
+    });
 }
 
 fn scaffold(g: &mut Game<'_>, s: &mut State) {
@@ -504,7 +604,7 @@ fn scaffold(g: &mut Game<'_>, s: &mut State) {
     core::restore_after_tick(yaw, pitch, keep);
 }
 
-/// `remote_send_state`: Blink and Freecam hold the movement back. NoFall's
+/// `remote_send_state`: Blink holds the movement back. NoFall's
 /// packet mode says the player is on the ground while falling, as do Flight going
 /// down and Jesus on a surface: a server counts a fall only while told it's in the air.
 pub fn send_state(g: &mut Game<'_>) -> bool {

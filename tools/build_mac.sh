@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds Asteroid Client on Horizon 66f3981 (the commit horizon-native.json pins)
+# Builds Asteroid Client on Horizon 9f42064 (the commit horizon-native.json pins)
 # into the separate test instance "asteroid-test", so the player's own instance
 # keeps its version. Prints the result and any compile errors.
 LOG="$HOME/asteroid-project/builds/build-$(date +%Y%m%d-%H%M%S).log"

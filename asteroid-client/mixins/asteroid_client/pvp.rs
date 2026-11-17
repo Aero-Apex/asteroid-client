@@ -83,7 +83,7 @@ pub fn on_mouse(g: &mut Game<'_>, s: &mut State, right: bool) {
             elytra_swapper(g, s);
         } else {
             attribute_swap(g, s);
-            if let Some((i, _)) = g.mob_hit() {
+            if let Some((i, ..)) = g.mob_hit() {
                 rt.hit = Some((g.mobs[i].id, s.ticks, g.mobs[i].health));
             }
         }
@@ -197,14 +197,14 @@ fn auto_mace(g: &mut Game<'_>, s: &mut State, rt: &mut Rt) -> bool {
         return false;
     };
     let aim = s.b("AutoMace", "AutoAim");
-    if !aim && g.mob_hit().is_none_or(|(i, _)| i != t.index) {
+    if !aim && g.mob_hit().is_none_or(|(i, ..)| i != t.index) {
         return false;
     }
     let (yaw, pitch, hand) = keep(g);
     s.target = Some(t.id);
     if aim {
         core::look_at(g, t.center);
-        if g.mob_hit().is_none_or(|(i, _)| i != t.index) {
+        if g.mob_hit().is_none_or(|(i, ..)| i != t.index) {
             g.yaw = yaw;
             g.pitch = pitch;
             return false;
@@ -596,6 +596,7 @@ pub fn predictions(g: &Game<'_>, s: &State, batch: &mut HudBatch, cam: &core::Ca
                 ProjectileKind::WindCharge | ProjectileKind::BreezeWindCharge => ("Wind charge", 0.0, 1.0, 0xFF_A0_D8_FF),
                 ProjectileKind::SmallFireball | ProjectileKind::LargeFireball { .. } => ("Fireball", 0.0, 1.0, 0xFF_FF_90_30),
                 ProjectileKind::WitherSkull { .. } => ("Wither skull", 0.0, 1.0, 0xFF_80_80_90),
+                ProjectileKind::DragonFireball => ("Dragon fireball", 0.0, 1.0, 0xFF_C0_40_FF),
                 ProjectileKind::LlamaSpit => ("Spit", 0.06, 0.99, 0xFF_E0_E0_A0),
                 ProjectileKind::Potion { .. } => ("Potion", 0.05, 0.99, 0xFF_E0_70_FF),
                 ProjectileKind::Trident => ("Trident", 0.05, 0.99, 0xFF_60_E0_D0),

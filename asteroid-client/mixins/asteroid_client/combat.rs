@@ -173,7 +173,7 @@ fn trigger_bot(g: &mut Game<'_>, s: &mut State) -> bool {
     if !s.on("TriggerBot") || g.using.is_some() {
         return false;
     }
-    let Some((i, _)) = g.mob_hit() else {
+    let Some((i, ..)) = g.mob_hit() else {
         return false;
     };
     let (p, h, a) = wanted(s, "TriggerBot");
@@ -254,7 +254,7 @@ fn aim_assist(g: &mut Game<'_>, s: &State, elapsed: Duration) {
     };
     AIM_TARGET.with(|c| c.set(Some(t.id)));
     // Already on it: your own aim is left alone.
-    if g.mob_hit().is_some_and(|(i, _)| i == t.index) {
+    if g.mob_hit().is_some_and(|(i, ..)| i == t.index) {
         return;
     }
     let (want_yaw, want_pitch) = core::angles(eye, aim_point(g, s, t, eye));
@@ -775,7 +775,7 @@ fn auto_city(g: &mut Game<'_>, s: &mut State, rt: &mut Rt) {
 }
 
 /// `Game::mob_hit` with Reach and Hitboxes: the entity under the crosshair.
-pub fn mob_hit(g: &Game<'_>) -> Option<Option<(usize, f64)>> {
+pub fn mob_hit(g: &Game<'_>) -> Option<Option<(usize, f64, [f64; 3])>> {
     let reach = core::REACH_ENTITIES.with(|c| c.get());
     let grow = core::HITBOX.with(|c| c.get());
     if !core::ACTIVE.with(|c| c.get()) || (reach <= 0.0 && grow <= 0.0) {
@@ -785,7 +785,7 @@ pub fn mob_hit(g: &Game<'_>) -> Option<Option<(usize, f64)>> {
     let dir = crate::game::view_vector(g.yaw, g.pitch);
     let base: f64 = if g.creative { 5.0 } else { 3.0 };
     let reach = if reach > 0.0 { reach.max(base) } else { base };
-    let mut best: Option<(usize, f64)> = None;
+    let mut best: Option<(usize, f64, [f64; 3])> = None;
     for (i, m) in g.mobs.iter().enumerate() {
         if !m.alive() || Some(m.id) == g.riding {
             continue;
@@ -810,7 +810,10 @@ pub fn mob_hit(g: &Game<'_>) -> Option<Option<(usize, f64)>> {
             t1 = t1.min(ta.max(tb));
         }
         if hit && t0 <= t1 && best.is_none_or(|b| t0 < b.1) {
-            best = Some((i, t0));
+            // Where the ray meets the box, from the mob's feet (the interact packet's point).
+            let at = [0, 1, 2].map(|a| eye[a] + dir[a] * t0);
+            let feet = [m.position.x, m.position.y, m.position.z];
+            best = Some((i, t0, [0, 1, 2].map(|a| at[a] - feet[a])));
         }
     }
     Some(best)

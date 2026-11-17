@@ -389,7 +389,7 @@ pub fn middle_click(g: &mut Game<'_>, s: &mut State) {
     if !s.on("MiddleClickFriend") || !g.native_playing() {
         return;
     }
-    let Some((i, _)) = g.mob_hit() else {
+    let Some((i, ..)) = g.mob_hit() else {
         return;
     };
     let id = g.mobs[i].id;

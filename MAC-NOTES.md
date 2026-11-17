@@ -116,3 +116,28 @@ death event.
 Pickaxe wear at the end: 794–1025 of 1561. No deaths. Raw logs: `test-runs/v8-seed*`.
 Earlier runs that died or stalled are kept in `test-runs/` under the prefixes
 `pre-*`, `precave-*`, `precreeper-*`, `preshelter-*`, `prespawner-*` and `interrupted-*`.
+
+## v1.1: Horizon 9f42064, Freecam, Fullbright, HUD
+
+- **Horizon 9f42064** (`nightly-2026-11-13-9f42064`): the mod now pins it (`horizon-native.json`,
+  `[compatibility]`), mod version 2.2.0. Three hook targets moved file in this Horizon
+  (`apply_mouse_look` to `game::pointer_capture`, `mapped_key` and `play_mouse` to
+  `game::play_input`); `mob_hit` now also returns the hit point, and there is a new
+  `ProjectileKind::DragonFireball` for Trajectories. 9f42064 is the first Horizon whose shader
+  packs can use API 0.2.
+- **Freecam** is a camera of its own (`native_camera_pose`). The body keeps its game mode and keeps
+  sending its movement, so Baritone, KillAura and the rest work with the body while the camera
+  looks around: W A S D, Space and Shift move the camera (Ctrl faster), the mouse turns it, and
+  neither reaches the body (`native_movement_input`). Turning the body (Baritone, KillAura) never
+  turns the camera. The body is drawn once the camera is 1.5 blocks out of its head. Freecam no
+  longer holds movement packets back as Blink does.
+- **Fullbright** gives full night vision (a `night-vision` hook on `night_vision_intensity`), which
+  the lightmap and shader packs (Iris `nightVision`, Horizon packs) brighten from, so it works with
+  Complementary and other packs, in caves too.
+- **HUD:** the bottom-right lines (Baritone's status, Armor, Facing, XYZ...) move above the hotbar,
+  hearts and food when a narrow window would put them over the hotbar.
+
+Tested offscreen on 9f42064: Baritone mined with Freecam on (camera still, body survival, body
+didn't move while W and Space were held); KillAura turned the body toward a zombie while the
+camera's picture stayed the same; Fullbright lit a sealed cave at midnight; the HUD lines sat
+above the hotbar on a 640-wide window. Not tested on a real server or with a real keyboard.
